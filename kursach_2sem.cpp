@@ -2,16 +2,19 @@
 #include <iostream>
 #include <string>
 #include <iomanip>
+#include <chrono> 
+#include <algorithm>
 using namespace std;
+using namespace chrono;
 
-void add_all_we_do_to_file(const string& what_we_do, string file_name) {
+void add_all_we_do_to_file(const string& what_we_do,const string& file_name) {
     ofstream file(file_name, ios::app);
     if (file.is_open()) {
         file << what_we_do << endl;
         file.close(); 
     }
     else {
-        cerr << "Ошибка при открытии файла для записи." << endl;
+        cout << "Ошибка при открытии файла для записи." << endl;
     }
 }
 struct red_black_tree {
@@ -71,6 +74,9 @@ void rotation_to_right(red_black_tree*& tree, red_black_tree*& elem) {
 
 void fix_red_black_tree(red_black_tree*& tree, red_black_tree*& child) {
     add_all_we_do_to_file("--> Проверяем дерево на дисбаланс", "output_ans.txt");
+    time_point<steady_clock, duration<__int64, ratio<1, 1000000000>>>start_time, end_time;
+    nanoseconds result1;
+    start_time = steady_clock::now();
     while (child != tree && child->parent != nullptr && child->parent->color == "red") {
         red_black_tree* par = child->parent;
         red_black_tree* grandpar = par->parent;
@@ -111,11 +117,16 @@ void fix_red_black_tree(red_black_tree*& tree, red_black_tree*& child) {
         }
     }
     tree->color = "black";
+    end_time = steady_clock::now();
+    result1 = duration_cast<nanoseconds>(end_time - start_time);
     add_all_we_do_to_file("--> Устанавливаем цвет корня - черным", "output_ans.txt");
 }
-void insert_elem_in_red_black_tree(red_black_tree*& tree, int num) {
+void insert_elem_in_red_black_tree(red_black_tree*& tree, int num, bool need_duration){
     add_all_we_do_to_file("--> Вставляем элемент: " + to_string(num), "output_ans.txt");
     red_black_tree* new_elem = new red_black_tree;
+    time_point<steady_clock, duration<__int64, ratio<1, 1000000000>>>start_time, end_time;
+    nanoseconds result;
+    start_time = steady_clock::now();
     new_elem->number = num;
     new_elem->color = "red";
     if (tree == nullptr) {
@@ -143,23 +154,31 @@ void insert_elem_in_red_black_tree(red_black_tree*& tree, int num) {
     else {
         par->right = new_elem;
     }
-    add_all_we_do_to_file("--> Новый элемент добавлен, вызываем функцию исправления дерева", "output_ans.txt");
+    end_time = steady_clock::now();
+    result = duration_cast<nanoseconds>(end_time - start_time);
+    add_all_we_do_to_file("--> Новый элемент добавлен за " + to_string(result.count()) + " наносекунд, вызываем функцию исправления дерева", "output_ans.txt");
     fix_red_black_tree(tree, new_elem);
+    if (need_duration) {
+        cout << result.count() << " наносекунд - время добавления элемента в дерево. " << endl;
+    }
 }
-void make_red_black_tree_random(red_black_tree *& tree, int N){
-    srand(time(0));
+void make_red_black_tree_random(red_black_tree*& tree, int N) {
+    int random_numbers[199];
+    for (int i = 0; i < 199; ++i) {
+        random_numbers[i] = i - 99;
+    }
+    random_shuffle(random_numbers, random_numbers + 199);
     add_all_we_do_to_file("--> Создаем случайное красно-черное дерево с " + to_string(N) + " элементами", "output_ans.txt");
     int random_num;
     for (int i = 0; i < N; i++) {
-         random_num = rand() % 199 - 99;
-         cout << random_num << endl;
-         add_all_we_do_to_file("--> Генерируем случайный элемент: " + to_string(random_num), "output_ans.txt");
-         insert_elem_in_red_black_tree(tree, random_num);
+        random_num = random_numbers[i % 199];
+        cout << random_num << endl;
+        add_all_we_do_to_file("--> Генерируем случайный элемент: " + to_string(random_num), "output_ans.txt");
+        insert_elem_in_red_black_tree(tree, random_num, false);
     }
 }
 void make_red_black_tree_hand_input(red_black_tree*& tree, int N) {
     string array_nums = "";
-    add_all_we_do_to_file("--> Ввод элементов вручную", "output_ans.txt");
     cin.ignore();
     while (true) {
         getline(cin, array_nums);
@@ -168,8 +187,7 @@ void make_red_black_tree_hand_input(red_black_tree*& tree, int N) {
         }
         else {
             int number = stoi(array_nums);
-            add_all_we_do_to_file("--> Вставляем элемент: " + to_string(number), "output_ans.txt");
-            insert_elem_in_red_black_tree(tree, number);
+            insert_elem_in_red_black_tree(tree, number, false);
             N++;
         }
     }
@@ -195,9 +213,84 @@ red_black_tree* min_in_tree(red_black_tree*& tree) {
     return tree;
 
 }
-void fixDeleting(red_black_tree*& tree, red_black_tree*& child) {}
-void delete_elem(red_black_tree* tree, int num) {
-    red_black_tree * curr = tree;
+void fix_deleting(red_black_tree*& tree, red_black_tree*& child) {
+    while (child != tree && child->color == "black") {
+        if (child == child->parent->left) {
+            red_black_tree* brother = child->parent->right;
+
+            if (brother && brother->color == "red") { 
+                brother->color = "black";
+                child->parent->color = "red";
+                rotation_to_left(tree, child->parent);
+                brother = child->parent->right; 
+            }
+            if ((brother == nullptr || brother->left == nullptr || brother->left->color == "black") &&
+                (brother == nullptr || brother->right == nullptr || brother->right->color == "black")) {
+                brother->color = "red";
+                child = child->parent;
+            }
+            else {
+                if (brother && brother->right == nullptr || brother->right->color == "black") {
+                    if (brother->left != nullptr) {
+                        brother->left->color = "black";
+                    }
+                    brother->color = "red";
+                    rotation_to_right(tree, brother);
+                    brother = child->parent->right;
+                }
+                brother->color = child->parent->color;
+                child->parent->color = "black";
+                if (brother->right != nullptr) {
+                    brother->right->color = "black";
+                }
+                rotation_to_left(tree, child->parent);
+                break;
+            }
+        }
+        else { // Если - правый ребенок
+            red_black_tree* brother = child->parent->left;
+
+            if (brother && brother->color == "red") {
+                brother->color = "black";
+                child->parent->color = "red";
+                rotation_to_right(tree, child->parent);
+                brother = child->parent->left; 
+            }
+
+            if ((brother == nullptr || brother->left == nullptr || brother->left->color == "black") &&
+                (brother == nullptr || brother->right == nullptr || brother->right->color == "black")) {
+                brother->color = "red";
+                child = child-> parent;
+            }
+            else {
+                if (brother && brother ->left == nullptr || brother -> left -> color == "black") {
+                    if (brother -> right != nullptr) {
+                        brother -> right -> color = "black";
+                    }
+                    brother -> color = "red";
+                    rotation_to_left(tree, brother);
+                    brother = child->parent-> left;
+                }
+
+                brother -> color = child-> parent->color;
+                child-> parent->color = "black";
+
+                if (brother -> left != nullptr) {
+                    brother -> left ->color = "black";
+                }
+                rotation_to_right(tree, child-> parent);
+                break;
+            }
+        }
+    }
+    child->color = "black";
+    tree->color = "black";
+}
+bool delete_elem(red_black_tree* tree, int num) {
+    time_point<steady_clock, duration<__int64, ratio<1, 1000000000>>>start_time, end_time;
+    nanoseconds result;
+    start_time = steady_clock::now();
+    red_black_tree* curr = tree;
     while (curr != nullptr && curr->number != num) {
         if (num < curr->number) {
             curr = curr->left;
@@ -209,7 +302,7 @@ void delete_elem(red_black_tree* tree, int num) {
 
     if (curr == nullptr) {
         cout << "Элемент " << num << " не найден." << std::endl;
-        return; 
+        return false;
     }
 
     red_black_tree* y = nullptr;
@@ -217,7 +310,7 @@ void delete_elem(red_black_tree* tree, int num) {
     string or_color = curr->color;
 
     if (curr->left == nullptr) {
-        child = curr->right; 
+        child = curr->right;
         change_in_tree(tree, curr, curr->right);
     }
     else if (curr->right == nullptr) {
@@ -248,10 +341,18 @@ void delete_elem(red_black_tree* tree, int num) {
     delete curr;
 
     if (or_color == "black") {
-        fixDeleting(tree, child);
+        fix_deleting(tree, child);
     }
+    end_time = steady_clock::now();
+    result = duration_cast<nanoseconds>(end_time - start_time);
+    cout << result.count() << " наносекунд - время удаления элемента из дерева. " << endl;
+    add_all_we_do_to_file(to_string(result.count()) + " наносекунд - время удаления элемента из дерева.", "output_key.txt");
+    return true;
 }
 red_black_tree* find_elem(red_black_tree* tree, int num) {
+    time_point<steady_clock, duration<__int64, ratio<1, 1000000000>>>start_time, end_time;
+    nanoseconds result;
+    start_time = steady_clock::now();
     while (tree != nullptr && tree->number != num) {
         if (num < tree->number) {
             tree = tree->left;
@@ -260,28 +361,101 @@ red_black_tree* find_elem(red_black_tree* tree, int num) {
             tree = tree->right;
         }
     }
-    return tree; 
+    end_time = steady_clock::now();
+    result = duration_cast<nanoseconds>(end_time - start_time);
+    cout << result.count() << " наносекунд - время поиска элемента в дерево. " << endl;
+    add_all_we_do_to_file(to_string(result.count()) + " наносекунд - время поиска элемента в дерево. ", "output_key.txt");
+    return tree;
 }
-void display_menu() {
-    cout << "Выберите действие:" << endl;
-    cout << "1. Создать красно-черное дерево." << endl;
-    cout << "2. Вывести красно-черное дерево." << endl;
-    cout << "3. Определение скорости вставки, удаления и получения элемента дерева." << endl;
-    cout << "4. Определение скорости проверки на сбалансированность." << endl;
-    cout << "5. Генерация заданий к практической работе по красно-черным деревьям. " << endl;
-    cout << "6. Выход!" << endl;
-}
-int main(){
-    red_black_tree* tree = nullptr;
-    setlocale(0, "");
-    int identificator, i, N, num;
-    string res;
+void generate_tasks(red_black_tree *& tree, int num_tasks) {
     ofstream file1("output_ans.txt", ios::trunc);
     file1.close();
     ofstream file2("output_key.txt", ios::trunc);
     file2.close();
     ofstream file3("output_task.txt", ios::trunc);
     file3.close();
+    if (num_tasks <= 0) {
+        cout << "Получается заданий нет" << endl;
+        add_all_we_do_to_file("Получается заданий нет", "output_task.txt");
+        add_all_we_do_to_file("Заданий нет, ответов тоже", "output_ans.txt");
+        add_all_we_do_to_file("Получается ответов нет", "output_key.txt");
+        return;
+    }
+    string tasks[] = {
+        "Создать красно-черное дерево.",
+        "Вывести красно-черное дерево.",
+        "Вставка элемента",
+        "Удаление элемента",
+        "Поиск элемента"
+    };
+    const int num_tasks_options = sizeof(tasks) / sizeof(tasks[0]);
+    int random_numbers[199];
+    for (int i = 0; i < 199; ++i) {
+        random_numbers[i] = i - 99; 
+    }
+    random_shuffle(random_numbers, random_numbers + 199);
+    srand(time(0));
+    int random_element = random_numbers[0]; 
+    tree = nullptr;
+    add_all_we_do_to_file(to_string(1) + ". " + tasks[0], "output_task.txt");
+    make_red_black_tree_random(tree, random_element);
+    add_all_we_do_to_file("Красно-черное дерево из " + to_string(random_element) + " элементов сформировано.", "output_key.txt");
+    for (int i = 0; i < num_tasks-1; ++i) {
+        int task_index = rand() % num_tasks_options;
+        cout << (i + 2) << ". " << tasks[task_index] << endl;
+        add_all_we_do_to_file(to_string((i + 2)) + ". " + tasks[task_index], "output_task.txt");
+        if (task_index == 2 or task_index == 3 or task_index == 4) {
+            int random_element = random_numbers[i % 199];
+            add_all_we_do_to_file("Случайный элемент для операции: " + to_string(random_element), "output_task.txt");
+            if (task_index == 2) {
+                while (find_elem(tree, random_element)) {
+                    add_all_we_do_to_file("Элемент " + to_string(random_element) + " уже есть в дереве. Введите другой элемент для вставки.", "output_ans.txt");
+                    random_element = random_numbers[i % 199];
+                }
+                insert_elem_in_red_black_tree(tree, random_element, true);
+                add_all_we_do_to_file("Элемент " + to_string(random_element) + " вставлен в дерево.", "output_key.txt");
+            }
+            else if (task_index == 3) {
+                if (delete_elem(tree, random_element)) {
+                    add_all_we_do_to_file("Элемент " + to_string(random_element) + "удален.", "output_key.txt");
+                }
+                else {
+                    add_all_we_do_to_file("Элемент " + to_string(random_element) + " не найден и не удален.", "output_key.txt");
+                }
+            }
+            else if (task_index == 4) {
+                if (find_elem(tree, random_element)) {
+                    add_all_we_do_to_file("Элемент " + to_string(random_element) + " найден.", "output_key.txt");
+                }
+                else {
+                    add_all_we_do_to_file("Элемент " + to_string(random_element) + " не найден.", "output_key.txt");
+                }
+            }
+            else if (task_index == 0) {
+                tree = nullptr;
+                make_red_black_tree_random(tree, random_element);
+                add_all_we_do_to_file("Красно-черное дерево из " + to_string(random_element) + " элементов сформировано.", "output_key.txt");
+            }
+        }
+        else if (task_index == 1) {
+            print_tree(tree);
+            add_all_we_do_to_file("Красно-черное дерево выведено на экран.", "output_key.txt");
+        }
+    }
+}
+void display_menu() {
+    cout << "Выберите действие:" << endl;
+    cout << "1. Создать красно-черное дерево." << endl;
+    cout << "2. Вывести красно-черное дерево." << endl;
+    cout << "3. Определение скорости вставки, удаления и получения элемента дерева." << endl;
+    cout << "4. Генерация заданий к практической работе по красно-черным деревьям. " << endl;
+    cout << "6. Выход!" << endl;
+}
+int main(){
+    red_black_tree* tree = nullptr;
+    setlocale(0, "");
+    int identificator, i, N, num, result=0, num_tasks;
+    string res;
     while (true) {
         display_menu();
         cout << "ВВЕДИТЕ НОМЕР ЗАДАНИЯ: ";
@@ -299,16 +473,14 @@ int main(){
             case 1:
                 cout << "Введите число элементов" << endl;
                 cin >> N;
-                add_all_we_do_to_file("1)Формирование красно-черного дерева 1) Заполнение дерева рандомными элементами. Количество элементов N=" + to_string(N), "output_task.txt");
+                tree = nullptr;
                 make_red_black_tree_random(tree, N);
-                add_all_we_do_to_file("Красно-черное дерево из " + to_string(N)+" элементов сформировано.", "output_key.txt");
                 print_tree(tree);
                 break;
             case 2:
                 N = 0;
-                add_all_we_do_to_file("1)Формирование красно-черного дерева 1) Заполнение дерева введенными элементами.", "output_task.txt");
+                tree = nullptr;
                 make_red_black_tree_hand_input(tree, N);
-                add_all_we_do_to_file("Красно-черное дерево сформировано.", "output_key.txt");
                 print_tree(tree);
                 break;
             default:
@@ -317,10 +489,7 @@ int main(){
             }
             break;
         case 2:
-            add_all_we_do_to_file("2) Вывод на экран красно-черного дерева.", "output_task.txt");
-            cout << "Ваше дерево выглядит так: " << endl;
             print_tree(tree);
-            add_all_we_do_to_file("Красно-черное дерево выведено на экран.", "output_key.txt");
             break;
         case 3:
             cout << "Формирование красно-черного дерева из N элементов: 1) вставка элемента 2) удаление элемента 3) получения элемента" << endl;
@@ -330,33 +499,38 @@ int main(){
             case 1:
                 cout << "Введите число для вставки: " << endl;
                 cin >> num;
-                add_all_we_do_to_file("3.1. Вставка элемента "+to_string(num)+ " в красно - черное дерево.", "output_task.txt");
-                insert_elem_in_red_black_tree(tree, num);
-                add_all_we_do_to_file("Элемент " + to_string(num) + " вставлен в дерево.", "output_key.txt");
+                while (find_elem(tree, num)) {
+                    res = "Элемент " + to_string(num) + " уже есть в дереве. Введите другой элемент для вставки.";
+                    cout << res << endl;
+                    cin >> num;
+                }
+                insert_elem_in_red_black_tree(tree, num, true);
                 print_tree(tree);
                 break;
             case 2:
                 N = 0;
                 cout << "Введите число для удаления: " << endl;
                 cin >> num;
-                add_all_we_do_to_file("3.2. Удаление элемента "+to_string(num)+ " в красно - черном дереве.", "output_task.txt");
-                delete_elem(tree, num);
-                add_all_we_do_to_file("Элемент " + to_string(num) + " удален.", "output_key.txt");
-                print_tree(tree);
+                if (delete_elem(tree,num)) {
+                    res = "Элемент " + to_string(num) + " удален.";
+                    cout << res << endl;
+                    print_tree(tree);
+                }
+                else {
+                    res = "Элемент " + to_string(num) + "не найден и не удален.";
+                    cout << res << endl;
+                }
                 break;
             case 3:
                 cout << "Введите число для поиска: " << endl;
                 cin >> num;
-                add_all_we_do_to_file("3.3. Поиск элемента " + to_string(num) + " в красно - черном дереве.", "output_task.txt");
-                if (find_elem(tree, num)) {
+               if (find_elem(tree, num)) {
                     res = "Элемент " + to_string(num) + " найден.";
                     cout << res<<endl;
-                    add_all_we_do_to_file(res, "output_key.txt");
                 }
                 else {
                     res = "Элемент " + to_string(num) + " не найден.";
                     cout << res << endl;
-                    add_all_we_do_to_file(res, "output_key.txt");
                 }
                 break;
             default:
@@ -364,10 +538,10 @@ int main(){
                 break;
             }
             break;
-            break;
         case 4:
-            break;
-        case 5:
+            cout << "Введите количество рандомных заданий " << endl;
+            cin >> num_tasks;
+            generate_tasks(tree, num_tasks);
             break;
         case 6:
             cout << "Выход!" << endl;
